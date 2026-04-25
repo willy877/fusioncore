@@ -1,0 +1,221 @@
+import React, { useState, useEffect } from 'react';
+import { UserPlus, UserCheck, UserX, Search, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/supabaseClient';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
+
+const Friends = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [search, setSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [friends, setFriends] = useState([]);
+  const [pending, setPending] = useState([]);
+  const [received, setReceived] = useState([]);
+  const [activeTab, setActiveTab] = useState('friends');
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => { if (user) fetchFriends(); }, [user]);
+
+  const fetchFriends = async () => {
+    const { data } = await supabase.from('friendships')
+      .select('*, sender:user_id(id,username,avatar_url,bio,status), receiver:friend_id(id,username,avatar_url,bio,status)')
+      .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
+    if (!data) return;
+    const accepted = data.filter(f => f.status === 'accepted').map(f =>
+      f.user_id === user.id ? f.receiver : f.sender);
+    const pend = data.filter(f => f.status === 'pending' && f.user_id === user.id).map(f => ({ ...f.receiver, fid: f.id }));
+    const recv = data.filter(f => f.status === 'pending' && f.friend_id === user.id).map(f => ({ ...f.sender, fid: f.id }));
+    setFriends(accepted);
+    setPending(pend);
+    setReceived(recv);
+  };
+
+  const handleSearch = async () => {
+    if (!search.trim()) return;
+    setSearching(true);
+    const { data } = await supabase.from('profiles').select('id,username,avatar_url,bio,status')
+      .ilike('username', `%${search}%`).neq('id', user.id).limit(10);
+    setSearchResults(data || []);
+    setSearching(false);
+  };
+
+  const sendRequest = async (friendId) => {
+    const { error } = await supabase.from('friendships').insert({ user_id: user.id, friend_id: friendId });
+    if (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.code === '23505' ? 'Ya enviaste una solicitud.' : error.message });
+    } else {
+      toast({ title: 'Solicitud enviada!' });
+      setSearchResults(prev => prev.filter(u => u.id !== friendId));
+      fetchFriends();
+    }
+  };
+
+  const acceptRequest = async (fid, friendId) => {
+    await supabase.from('friendships').update({ status: 'accepted' }).eq('id', fid);
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id, conversation_members!inner(user_id)')
+      .eq('is_group', false)
+      .eq('conversation_members.user_id', user.id);
+    const dmExists = existing?.some(conv =>
+      conv.conversation_members?.some(m => m.user_id === friendId)
+    );
+    if (!dmExists) {
+      const { data: conv } = await supabase
+        .from('conversations')
+        .insert({ is_group: false })
+        .select().single();
+      if (conv) {
+        await supabase.from('conversation_members').insert([
+          { conversation_id: conv.id, user_id: user.id },
+          { conversation_id: conv.id, user_id: friendId }
+        ]);
+      }
+    }
+    toast({ title: 'Amigo aceptado! Chat creado.' });
+    fetchFriends();
+  };
+
+  const rejectRequest = async (fid) => {
+    await supabase.from('friendships').delete().eq('id', fid);
+    toast({ title: 'Solicitud rechazada' });
+    fetchFriends();
+  };
+
+  const removeFriend = async (friendId) => {
+    await supabase.from('friendships').delete()
+      .or(`and(user_id.eq.${user.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${user.id})`);
+    toast({ title: 'Amigo eliminado' });
+    fetchFriends();
+  };
+
+  const Avatar = ({ u }) => (
+    <div className="relative flex-shrink-0">
+      <img src={u?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u?.username}`}
+        className="w-10 h-10 rounded-full border-2 border-slate-600" alt="" />
+      <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-slate-900 ${u?.status === 'online' ? 'bg-green-500' : 'bg-gray-500'}`} />
+    </div>
+  );
+
+  const UserCard = ({ f, children, showBio = true }) => (
+    <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl hover:bg-slate-800 transition-colors">
+      <Avatar u={f} />
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-medium truncate">{f?.username}</p>
+        {showBio ? (
+          f?.bio
+            ? <p className="text-xs text-gray-400 truncate">{f.bio}</p>
+            : <p className="text-xs text-gray-600 italic">Sin biografia</p>
+        ) : (
+          <p className="text-xs text-gray-600 italic">Agrega como amigo para ver su perfil</p>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-2">
+        {[
+          { id: 'friends', label: `Amigos (${friends.length})` },
+          { id: 'received', label: `Solicitudes (${received.length})` },
+          { id: 'search', label: 'Buscar' }
+        ].map(t => (
+          <button key={t.id} onClick={() => setActiveTab(t.id)}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all relative ${activeTab === t.id ? 'bg-blue-600 text-white' : 'bg-slate-800 text-gray-400 hover:bg-slate-700'}`}>
+            {t.label}
+            {t.id === 'received' && received.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                {received.length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'friends' && (
+        <div className="space-y-2">
+          {friends.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <Users className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>Sin amigos aun. Busca usuarios para agregar!</p>
+            </div>
+          ) : friends.map((f, i) => (
+            <UserCard key={i} f={f}>
+              <Button size="sm" variant="outline" onClick={() => removeFriend(f?.id)}
+                className="border-red-500/50 text-red-400 hover:bg-red-500/10 text-xs flex-shrink-0">
+                Eliminar
+              </Button>
+            </UserCard>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'received' && (
+        <div className="space-y-2">
+          {received.length === 0 ? (
+            <div className="text-center py-12 text-gray-400">
+              <UserPlus className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>No tienes solicitudes pendientes</p>
+            </div>
+          ) : received.map((f, i) => (
+            <UserCard key={i} f={f}>
+              <Button size="sm" onClick={() => acceptRequest(f.fid, f.id)}
+                className="bg-green-600 hover:bg-green-700 text-white text-xs flex-shrink-0">
+                <UserCheck className="w-3 h-3 mr-1" /> Aceptar
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => rejectRequest(f.fid)}
+                className="border-red-500/50 text-red-400 text-xs flex-shrink-0">
+                <UserX className="w-3 h-3 mr-1" /> Rechazar
+              </Button>
+            </UserCard>
+          ))}
+          {pending.length > 0 && (
+            <div className="mt-4">
+              <p className="text-gray-400 text-sm mb-2">Solicitudes enviadas ({pending.length})</p>
+              {pending.map((f, i) => (
+                <UserCard key={i} f={f}>
+                  <span className="text-xs text-yellow-400 flex-shrink-0">Pendiente</span>
+                </UserCard>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'search' && (
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <Input value={search} onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              placeholder="Buscar por username..."
+              className="bg-slate-800 border-slate-600 text-white focus-visible:ring-blue-500" />
+            <Button onClick={handleSearch} disabled={searching}
+              className="bg-blue-600 hover:bg-blue-700">
+              <Search className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {searchResults.length === 0 && search && !searching && (
+              <p className="text-center text-gray-400 py-4">No se encontraron usuarios</p>
+            )}
+            {searchResults.map((u, i) => (
+              <UserCard key={i} f={u} showBio={false}>
+                <Button size="sm" onClick={() => sendRequest(u.id)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs flex-shrink-0">
+                  <UserPlus className="w-3 h-3 mr-1" /> Agregar
+                </Button>
+              </UserCard>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Friends;
