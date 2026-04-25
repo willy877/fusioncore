@@ -1,8 +1,0 @@
-## Pages
-- [- Fusion Core](/login): No description available
-- [- Fusion Core](/publicprofile): No description available
-- [Configuración - Fusion Core](/settings): Personaliza tu experiencia en Fusion Core con control total sobre todas las funcionalidades
-- [Dashboard - Fusion Core](/dashboard): No description available
-- [Establecer Nueva Contraseña - Fusion Core](/resetpassword): Establece una nueva contraseña para tu cuenta de Fusion Core
-- [Nova IA - Fusion Core](/nova): No description available
-- [Restablecer Contraseña - Fusion Core](/forgotpassword): Restablece tu contraseña de Fusion Core
