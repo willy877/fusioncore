@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/contexts/SupabaseAuthContext';
 import { SocketProvider } from '@/contexts/SocketContext';
+import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import Landing from '@/pages/Landing';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
@@ -16,6 +17,7 @@ import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
 import AuthCallback from '@/pages/AuthCallback';
 import FriendsPage from '@/pages/Friends';
+import Notifications from '@/pages/Notifications';
 import { Toaster } from '@/components/ui/toaster';
 import CallOverlay from '@/components/CallOverlay';
 
@@ -41,27 +43,30 @@ function App() {
   return (
     <AuthProvider>
       <SocketProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
-            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/social" element={<ProtectedRoute><Social /></ProtectedRoute>} />
-            <Route path="/gaming" element={<ProtectedRoute><Gaming /></ProtectedRoute>} />
-            <Route path="/nova" element={<ProtectedRoute><Nova /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-            <Route path="/profile/:id" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />
-            <Route path="/dm" element={<ProtectedRoute><DirectMessages /></ProtectedRoute>} />
-            <Route path="/friends" element={<ProtectedRoute><FriendsPage /></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-          <CallOverlay />
-        </Router>
-        <Toaster />
+        <NotificationsProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<PublicRoute><Landing /></PublicRoute>} />
+              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/social" element={<ProtectedRoute><Social /></ProtectedRoute>} />
+              <Route path="/gaming" element={<ProtectedRoute><Gaming /></ProtectedRoute>} />
+              <Route path="/nova" element={<ProtectedRoute><Nova /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+              <Route path="/profile/:id" element={<ProtectedRoute><PublicProfile /></ProtectedRoute>} />
+              <Route path="/dm" element={<ProtectedRoute><DirectMessages /></ProtectedRoute>} />
+              <Route path="/friends" element={<ProtectedRoute><FriendsPage /></ProtectedRoute>} />
+              <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+            <CallOverlay />
+          </Router>
+          <Toaster />
+        </NotificationsProvider>
       </SocketProvider>
     </AuthProvider>
   );

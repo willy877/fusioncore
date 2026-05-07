@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/SupabaseAuthContext";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import { supabase } from "@/supabaseClient";
 import { Home, Sparkles, Users, Gamepad2, User, LogOut, Menu, X, Bell, MessageCircle } from "lucide-react";
 import { api } from "@/api";
@@ -16,10 +17,10 @@ const NAV_ITEMS = [
 
 const Layout = ({ children }) => {
   const { user, signOut } = useAuth();
+  const { unreadCount } = useNotifications();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [avatar, setAvatar] = useState(null);
-  const [pendingRequests, setPendingRequests] = useState(0);
   const [dmBadge, setDmBadge] = useState(0);
 
   const initial = user?.email?.[0]?.toUpperCase() || "U";
@@ -85,12 +86,15 @@ const Layout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate("/dm")}
-              className="relative w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-all">
+            {/* Bell con badge de notificaciones reales */}
+            <button
+              onClick={() => navigate("/notifications")}
+              className="relative w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-all"
+            >
               <Bell className="w-4 h-4" />
-              {dmBadge > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                  {dmBadge > 9 ? "9+" : dmBadge}
+              {unreadCount > 0 && (
+                <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-indigo-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
             </button>
@@ -126,6 +130,18 @@ const Layout = ({ children }) => {
                 )}
               </NavLink>
             ))}
+            <NavLink
+              to="/notifications"
+              onClick={() => setMobileOpen(false)}
+              className={({ isActive }) => `nav-link w-full ${isActive ? "active" : ""}`}>
+              <Bell className="w-4 h-4" />
+              Notificaciones
+              {unreadCount > 0 && (
+                <span className="ml-auto min-w-[18px] h-[18px] px-1 bg-indigo-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </NavLink>
           </div>
         )}
       </nav>
